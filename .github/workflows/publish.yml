@@ -1,0 +1,55 @@
+name: "Build & Upload Release"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_upload:
+
+    permissions:
+      contents: "write"
+      packages: "write"
+      pull-requests: "read"
+
+    runs-on: windows-latest
+
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+
+    - name: Publish
+      run: |
+        dotnet publish /p:DebugType=None /p:DebugSymbols=false --configuration Release --self-contained:false
+
+    - name: Zip
+      shell: cmd
+      run: |
+        cd "FileHasherWPF\bin\Release\net8.0-windows\publish"
+        "C:\Program Files\7-Zip\7z.exe" a -tzip FileHasherWPF.zip *
+        mv FileHasherWPF.zip ..\..\..\..\..\
+
+    - name: Upload archive to release
+      uses: xresloader/upload-to-github-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        file: "FileHasherWPF.zip"
+        draft: true
+        overwrite: true
